@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Menu</title>
+<style>
+  :root{
+    --bg-deep: #050b1f;
+    --bg-mid: #0a1436;
+    --wave-a: rgba(60, 110, 220, 0.35);
+    --wave-b: rgba(30, 60, 140, 0.25);
+    --ice: #dce8ff;
+    --ice-dim: #7f95c9;
+    --accent: #9fc8ff;
+    --glow: #6fa8ff;
+  }
+
+  *{ margin:0; padding:0; box-sizing:border-box; }
+
+  html, body{
+    height:100%;
+    background: radial-gradient(ellipse at 50% 30%, var(--bg-mid) 0%, var(--bg-deep) 70%);
+    overflow:hidden;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  canvas#waves{
+    position:fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    display:block;
+  }
+
+  .scene{
+    position:relative;
+    width:100%;
+    height:100%;
+  }
+
+  /* ---------- Top bar: relógio ---------- */
+  .topbar{
+    position:absolute;
+    top:28px;
+    right:40px;
+    text-align:right;
+    color: var(--ice);
+    z-index:5;
+    font-weight:300;
+    letter-spacing:1px;
+    text-shadow: 0 0 12px rgba(150,190,255,0.5);
+  }
+  .topbar .time{
+    font-size:28px;
+    line-height:1;
+  }
+  .topbar .date{
+    font-size:12px;
+    color: var(--ice-dim);
+    margin-top:4px;
+    text-transform:capitalize;
+  }
+
+  /* ---------- Carrossel de ícones ---------- */
+  .carousel-wrap{
+    position:absolute;
+    top:50%;
+    left:0;
+    right:0;
+    transform: translateY(-50%);
+    z-index:4;
+  }
+
+  .carousel{
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    gap: 70px;
+    padding: 0 40px;
+  }
+
+  .icon-item{
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    cursor:pointer;
+    transition: transform 0.35s cubic-bezier(.2,.8,.3,1), opacity 0.35s ease;
+    opacity:0.38;
+    transform: scale(0.72) translateY(10px);
+    outline:none;
+  }
+
+  .icon-item.active{
+    opacity:1;
+    transform: scale(1) translateY(0);
+  }
+
+  .icon-item .icon-face{
+    width:96px;
+    height:96px;
+    border-radius:22px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:42px;
+    position:relative;
+    background: linear-gradient(160deg, rgba(255,255,255,0.14), rgba(255,255,255,0.02) 40%, rgba(0,0,0,0.25));
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow:
+      inset 0 1px 1px rgba(255,255,255,0.35),
+      inset 0 -8px 14px rgba(0,0,0,0.35),
+      0 10px 25px rgba(0,0,0,0.45);
+    color: var(--ice);
+    animation: floaty 4.5s ease-in-out infinite;
+  }
+
+  .icon-item:nth-child(2n) .icon-face{ animation-delay: -1.4s; }
+  .icon-item:nth-child(3n) .icon-face{ animation-delay: -2.6s; }
+
+  .icon-item.active .icon-face{
+    box-shadow:
+      inset 0 1px 1px rgba(255,255,255,0.5),
+      inset 0 -8px 14px rgba(0,0,0,0.3),
+      0 0 40px var(--glow),
+      0 18px 30px rgba(0,0,0,0.5);
+    border-color: rgba(180,215,255,0.6);
+  }
+
+  @keyframes floaty{
+    0%, 100%{ transform: translateY(0); }
+    50%{ transform: translateY(-6px); }
+  }
+
+  /* reflexo abaixo do ícone, estilo PS2 */
+  .icon-item .reflection{
+    width:96px;
+    height:40px;
+    margin-top:6px;
+    border-radius:22px;
+    background: linear-gradient(160deg, rgba(255,255,255,0.1), transparent 70%);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.35), transparent 90%);
+            mask-image: linear-gradient(to bottom, rgba(0,0,0,0.35), transparent 90%);
+    transform: scaleY(-1);
+    opacity:0.5;
+    filter: blur(0.3px);
+  }
+
+  .icon-item:not(.active) .reflection{ opacity:0.18; }
+
+  /* ---------- Label do item selecionado ---------- */
+  .label-wrap{
+    position:absolute;
+    left:0; right:0;
+    bottom: 30%;
+    text-align:center;
+    z-index:5;
+    pointer-events:none;
+  }
+
+  .label-text{
+    display:inline-block;
+    font-size:22px;
+    font-weight:300;
+    letter-spacing:6px;
+    color: var(--ice);
+    text-transform: uppercase;
+    text-shadow: 0 0 18px rgba(150,190,255,0.55);
+    opacity:0;
+    transform: translateY(6px);
+    animation: labelIn 0.4s ease forwards;
+  }
+
+  @keyframes labelIn{
+    to{ opacity:1; transform: translateY(0); }
+  }
+
+  /* indicador de posição */
+  .dots{
+    position:absolute;
+    bottom: 56px;
+    left:0; right:0;
+    display:flex;
+    justify-content:center;
+    gap:8px;
+    z-index:5;
+  }
+  .dots span{
+    width:6px; height:6px;
+    border-radius:50%;
+    background: rgba(255,255,255,0.25);
+    transition: all 0.3s ease;
+  }
+  .dots span.active{
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--glow);
+    width:18px;
+    border-radius:3px;
+  }
+
+  /* dica de navegação */
+  .hint{
+    position:absolute;
+    bottom: 20px;
+    right: 34px;
+    color: var(--ice-dim);
+    font-size:11px;
+    letter-spacing:1px;
+    z-index:5;
+    display:flex;
+    gap:18px;
+  }
+  .hint kbd{
+    display:inline-block;
+    padding:2px 6px;
+    border:1px solid rgba(255,255,255,0.25);
+    border-radius:4px;
+    margin-right:4px;
+    font-size:10px;
+    color: var(--ice);
+  }
+
+  /* scanline sutil */
+  .scanlines{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.02) 0px,
+      rgba(255,255,255,0.02) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    mix-blend-mode: overlay;
+    z-index:10;
+  }
+
+  .vignette{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.55) 100%);
+    z-index:9;
+  }
+
+  /* =====================================================
+     Dashboard de Jogos — mecânica/estética Xbox 360 (NXE)
+     usando a paleta padrão do menu (sem verde Xbox)
+     ===================================================== */
+
+  .scene.games-mode .carousel-wrap,
+  .scene.games-mode .label-wrap,
+  .scene.games-mode .dots,
+  .scene.games-mode .hint{
+    opacity:0;
+    pointer-events:none;
+    transition: opacity 0.35s ease;
+  }
+
+  .games-dashboard{
+    position:fixed;
+    inset:0;
+    z-index:6;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding: 0 7vw;
+    opacity:0;
+    pointer-events:none;
+    transform: translateY(26px);
+    transition: opacity 0.45s ease, transform 0.45s cubic-bezier(.2,.8,.3,1);
+  }
+  .games-dashboard.open{
+    opacity:1;
+    pointer-events:auto;
+    transform: translateY(0);
+  }
+
+  .games-tabs{
+    display:flex;
+    gap:34px;
+    margin-bottom:40px;
+    padding-bottom:14px;
+    border-bottom:1px solid rgba(255,255,255,0.12);
+  }
+  .games-tabs span{
+    font-size:11px;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color: var(--ice-dim);
+    padding-bottom:14px;
+    position:relative;
+    font-weight:300;
+    cursor:pointer;
+    transition: color 0.25s ease, text-shadow 0.25s ease;
+  }
+  .games-tabs span:hover{
+    color: var(--ice);
+  }
+  .games-tabs span.active{
+    color: var(--ice);
+    text-shadow: 0 0 14px rgba(150,190,255,0.6);
+  }
+  .games-tabs span.active::after{
+    content:'';
+    position:absolute;
+    left:0; right:0; bottom:-15px;
+    height:2px;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--glow);
+    transition: left 0.3s cubic-bezier(.2,.8,.3,1), right 0.3s cubic-bezier(.2,.8,.3,1);
+  }
+
+  /* ---------- Conteúdo de cada aba ---------- */
+  .tab-content{
+    display:none;
+    opacity:0;
+    transform: translateY(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  .tab-content.show{
+    display:block;
+    opacity:1;
+    transform: translateY(0);
+  }
+  .tab-placeholder{
+    color: var(--ice-dim);
+    font-size:13px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    font-weight:300;
+    padding: 30px 4px;
+    opacity:0.7;
+  }
+
+  .games-tiles{
+    display:flex;
+    gap:20px;
+    align-items:flex-end;
+    padding: 10px 4px 22px;
+  }
+
+  .game-tile{
+    flex: 0 0 auto;
+    width:96px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    opacity:0;
+    transform: translateX(40px) rotateY(35deg);
+    transition: transform 0.4s cubic-bezier(.2,.8,.3,1), opacity 0.4s ease, width 0.3s ease;
+  }
+  .games-dashboard.open .game-tile{
+    opacity:0.4;
+    transform: translateX(0) rotateY(0);
+  }
+  .game-tile .tile-face{
+    width:100%;
+    aspect-ratio:1;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:36px;
+    background: linear-gradient(160deg, rgba(255,255,255,0.14), rgba(255,255,255,0.02) 40%, rgba(0,0,0,0.3));
+    border:1px solid rgba(255,255,255,0.15);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.3), inset 0 -8px 14px rgba(0,0,0,0.35), 0 8px 18px rgba(0,0,0,0.4);
+    transition: font-size 0.3s ease, box-shadow 0.3s ease;
+  }
+  .game-tile .tile-reflection{
+    width:100%; height:24px;
+    margin-top:5px;
+    border-radius:12px;
+    background: linear-gradient(160deg, rgba(255,255,255,0.1), transparent 70%);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.35), transparent 90%);
+            mask-image: linear-gradient(to bottom, rgba(0,0,0,0.35), transparent 90%);
+    transform: scaleY(-1);
+    opacity:0.4;
+  }
+  .game-tile .tile-name{
+    margin-top:10px;
+    font-size:10px;
+    letter-spacing:1px;
+    color: var(--ice-dim);
+    text-transform:uppercase;
+    text-align:center;
+    opacity:0;
+    transition: opacity 0.3s ease;
+    white-space:nowrap;
+  }
+  .game-tile.active{ width:148px; opacity:1 !important; }
+  .game-tile.active .tile-face{
+    font-size:52px;
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -8px 14px rgba(0,0,0,0.3), 0 0 44px var(--glow), 0 18px 30px rgba(0,0,0,0.5);
+    border-color: rgba(180,215,255,0.6);
+  }
+  .game-tile.active .tile-name{ opacity:1; }
+  .game-tile.flip .tile-face{ animation: tileFlip 0.36s ease; }
+  @keyframes tileFlip{
+    0%{ transform: rotateY(0deg); }
+    50%{ transform: rotateY(85deg); }
+    100%{ transform: rotateY(0deg); }
+  }
+
+  /* painel "twist" — abre girando a partir do topo, como as blades da NXE */
+  .game-panel{
+    margin-top:34px;
+    max-width:560px;
+    transform-origin: top center;
+    transform: scaleY(0) rotateX(-45deg);
+    opacity:0;
+    transition: transform 0.3s cubic-bezier(.2,.8,.3,1), opacity 0.25s ease;
+  }
+  .game-panel.show{
+    transform: scaleY(1) rotateX(0deg);
+    opacity:1;
+  }
+  .game-panel h2{
+    font-weight:300;
+    font-size:24px;
+    letter-spacing:2px;
+    color: var(--ice);
+    text-shadow: 0 0 16px rgba(150,190,255,0.5);
+    margin-bottom:6px;
+  }
+  .game-panel .meta{
+    font-size:12px;
+    color: var(--ice-dim);
+    letter-spacing:1px;
+    margin-bottom:18px;
+  }
+  .progress-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-bottom:16px;
+  }
+  .progress-track{
+    flex:1;
+    height:6px;
+    border-radius:3px;
+    background: rgba(255,255,255,0.12);
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    border-radius:3px;
+    background: linear-gradient(90deg, var(--wave-a), var(--accent));
+    box-shadow: 0 0 10px var(--glow);
+    width:0%;
+    transition: width 0.6s ease 0.15s;
+  }
+  .progress-label{
+    font-size:11px;
+    color: var(--ice-dim);
+    white-space:nowrap;
+    letter-spacing:1px;
+  }
+  .achv-row{ display:flex; gap:10px; }
+  .achv{
+    width:28px; height:28px;
+    border-radius:7px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:12px;
+    background: rgba(255,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.12);
+    color: var(--ice-dim);
+  }
+  .achv.unlocked{
+    color: var(--ice);
+    border-color: rgba(180,215,255,0.5);
+    box-shadow: 0 0 10px rgba(150,190,255,0.35);
+    background: linear-gradient(160deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02));
+  }
+
+  /* ---------- Aba "Conquistas": sub-abas por jogo + grid de conquistas ---------- */
+  .achv-game-tabs{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:22px;
+  }
+  .achv-game-tab{
+    font-size:11px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color: var(--ice-dim);
+    background: rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:20px;
+    padding:8px 16px;
+    cursor:pointer;
+    transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    white-space:nowrap;
+  }
+  .achv-game-tab:hover{ color: var(--ice); }
+  .achv-game-tab.active{
+    color: var(--ice);
+    border-color: rgba(180,215,255,0.55);
+    background: linear-gradient(160deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02));
+    box-shadow: 0 0 12px rgba(150,190,255,0.3);
+  }
+
+  .achv-grid{
+    display:grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap:12px;
+    max-height:56vh;
+    overflow-y:auto;
+    padding-right:6px;
+  }
+  .achv-grid::-webkit-scrollbar{ width:6px; }
+  .achv-grid::-webkit-scrollbar-thumb{ background: rgba(150,190,255,0.25); border-radius:3px; }
+
+  .achv-card{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    background: rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.1);
+    border-radius:12px;
+    padding:14px;
+    opacity:0.55;
+    transition: opacity 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  }
+  .achv-card.unlocked{
+    opacity:1;
+    border-color: rgba(180,215,255,0.45);
+    background: linear-gradient(160deg, rgba(255,255,255,0.09), rgba(255,255,255,0.02));
+    box-shadow: 0 0 14px rgba(150,190,255,0.2);
+  }
+  .achv-card-icon{
+    width:34px; height:34px; flex:none;
+    border-radius:9px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:14px;
+    background: rgba(255,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.12);
+    color: var(--ice-dim);
+  }
+  .achv-card.unlocked .achv-card-icon{
+    color:#fde047;
+    border-color: rgba(253,224,71,0.4);
+    box-shadow: 0 0 10px rgba(253,224,71,0.35);
+  }
+  .achv-card-body{ flex:1; min-width:0; }
+  .achv-card-name{
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:0.5px;
+    color: var(--ice);
+    margin-bottom:4px;
+  }
+  .achv-card-desc{
+    font-size:11px;
+    color: var(--ice-dim);
+    line-height:1.5;
+  }
+  .achv-card-pts{
+    flex:none;
+    font-size:11px;
+    font-weight:700;
+    color: var(--accent);
+    letter-spacing:0.5px;
+  }
+
+  @media (max-width: 720px){
+    .achv-grid{ grid-template-columns: 1fr; }
+  }
+
+  .games-hint{
+    position:absolute;
+    bottom:20px;
+    left:0; right:0;
+    display:flex;
+    justify-content:center;
+    gap:24px;
+    color: var(--ice-dim);
+    font-size:11px;
+    letter-spacing:1px;
+    opacity:0;
+    transition: opacity 0.4s ease;
+    pointer-events:none;
+    z-index:7;
+  }
+  .games-hint.show{ opacity:1; }
+  .games-hint kbd{
+    display:inline-block;
+    padding:2px 6px;
+    border:1px solid rgba(255,255,255,0.25);
+    border-radius:4px;
+    margin-right:4px;
+    font-size:10px;
+    color: var(--ice);
+  }
+
+  /* flash de "boot" ao iniciar um jogo, no mesmo tom azul-gelo */
+  .boot-flash{
+    position:fixed;
+    inset:0;
+    background: radial-gradient(circle at center, rgba(150,190,255,0.35), rgba(5,11,31,0.97) 72%);
+    z-index:20;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    opacity:0;
+    pointer-events:none;
+    transition: opacity 0.25s ease;
+  }
+  .boot-flash.show{ opacity:1; }
+  .boot-flash span{
+    font-size:13px;
+    letter-spacing:5px;
+    text-transform:uppercase;
+    color: var(--ice);
+    text-shadow: 0 0 18px rgba(150,190,255,0.6);
+  }
+
+  @media (max-width: 700px){
+    .carousel{ gap: 30px; }
+    .icon-item .icon-face{ width:68px; height:68px; font-size:30px; border-radius:16px; }
+    .icon-item .reflection{ width:68px; }
+    .label-text{ font-size:16px; letter-spacing:3px; }
+    .topbar{ right:20px; top:18px; }
+    .topbar .time{ font-size:20px; }
+
+    .games-dashboard{ padding: 0 5vw; }
+    .games-tabs{ gap:18px; margin-bottom:26px; }
+    .games-tabs span{ font-size:9px; }
+    .games-tiles{ gap:12px; }
+    .game-tile{ width:60px; }
+    .game-tile .tile-face{ font-size:24px; border-radius:9px; }
+    .game-tile.active{ width:92px; }
+    .game-tile.active .tile-face{ font-size:34px; }
+    .game-panel{ margin-top:22px; }
+    .game-panel h2{ font-size:18px; }
+  }
+</style>
+</head>
+<body>
+  <!--
+    Sons de interface: Soundimage.org (Eric Matyas) — soundimage.org
+    Uso gratuito, mas EXIGE atribuição visível em créditos/sobre. Ex.:
+    "Music/Sound by Eric Matyas, www.soundimage.org"
+  -->
+  <audio id="sfx-move" preload="auto" src="https://soundimage.org/wp-content/uploads/2016/04/UI_Quirky3.mp3"></audio>
+  <audio id="sfx-confirm" preload="auto" src="https://soundimage.org/wp-content/uploads/2016/04/UI_Quirky9.mp3"></audio>
+  <audio id="sfx-back" preload="auto" src="https://soundimage.org/wp-content/uploads/2016/04/UI_Quirky5.mp3"></audio>
+
+<canvas id="waves"></canvas>
+<div class="vignette"></div>
+<div class="scanlines"></div>
+
+<div class="scene" id="scene">
+  <div class="topbar">
+    <div class="time" id="clockTime">00:00</div>
+    <div class="date" id="clockDate">--</div>
+  </div>
+
+  <div class="label-wrap">
+    <span class="label-text" id="labelText">Sistema</span>
+  </div>
+
+  <div class="carousel-wrap">
+    <div class="carousel" id="carousel">
+      <div class="icon-item" data-label="Navegador" tabindex="0">
+        <div class="icon-face">🌐</div>
+        <div class="reflection"></div>
+      </div>
+      <div class="icon-item" data-label="Jogos" tabindex="0">
+        <div class="icon-face">🎮</div>
+        <div class="reflection"></div>
+      </div>
+      <div class="icon-item" data-label="Sistema" tabindex="0">
+        <div class="icon-face">⚙️</div>
+        <div class="reflection"></div>
+      </div>
+      <div class="icon-item" data-label="Memória" tabindex="0">
+        <div class="icon-face">💾</div>
+        <div class="reflection"></div>
+      </div>
+      <div class="icon-item" data-label="Música" tabindex="0">
+        <div class="icon-face">🎵</div>
+        <div class="reflection"></div>
+      </div>
+      <div class="icon-item" data-label="Imagens" tabindex="0">
+        <div class="icon-face">🖼️</div>
+        <div class="reflection"></div>
+      </div>
+      <div class="icon-item" data-label="Rede" tabindex="0">
+        <div class="icon-face">📡</div>
+        <div class="reflection"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dots" id="dots"></div>
+
+  <div class="hint">
+    <span><kbd>&#8592;</kbd><kbd>&#8594;</kbd> navegar</span>
+    <span><kbd>Enter</kbd> selecionar</span>
+  </div>
+
+  <div class="games-dashboard" id="gamesDashboard">
+    <div class="games-tabs" id="gamesTabs">
+      <span data-tab-index="0">Extras</span>
+      <span data-tab-index="1" class="active">Coleção de Jogos</span>
+      <span data-tab-index="2">Conquistas</span>
+      <span data-tab-index="3">Marketplace</span>
+    </div>
+
+    <div class="tab-content" id="tabContent-0">
+      <div class="tab-placeholder">Nenhum extra disponível no momento</div>
+    </div>
+
+    <div class="tab-content show" id="tabContent-1">
+      <div class="games-tiles" id="gamesTiles"></div>
+      <div class="game-panel" id="gamePanel"></div>
+    </div>
+
+    <div class="tab-content" id="tabContent-2">
+      <div class="achv-game-tabs" id="achvGameTabs"></div>
+      <div class="achv-grid" id="achvGrid"></div>
+    </div>
+
+    <div class="tab-content" id="tabContent-3">
+      <div class="tab-placeholder">Marketplace indisponível offline</div>
+    </div>
+  </div>
+
+  <div class="games-hint" id="gamesHint">
+    <span><kbd>&#8593;</kbd><kbd>&#8595;</kbd> trocar aba</span>
+    <span><kbd>&#8592;</kbd><kbd>&#8594;</kbd> navegar</span>
+    <span><kbd>Enter</kbd> iniciar</span>
+    <span><kbd>Backspace</kbd> voltar</span>
+  </div>
+
+  <div class="boot-flash" id="bootFlash"><span>Carregando&hellip;</span></div>
+</div>
+
+<script>
+  /* ---------------- Fundo de ondas estilo PS2 ---------------- */
+  const canvas = document.getElementById('waves');
+  const ctx = canvas.getContext('2d');
+  let w, h, dpr;
+
+  function resize(){
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    w = canvas.width = window.innerWidth * dpr;
+    h = canvas.height = window.innerHeight * dpr;
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const layers = [
+    { amp: 26, freq: 0.006, speed: 0.00035, y: 0.62, color: 'rgba(70,120,230,0.28)', width: 1.4 },
+    { amp: 34, freq: 0.004, speed: -0.0005, y: 0.68, color: 'rgba(50,90,190,0.22)', width: 1.1 },
+    { amp: 18, freq: 0.009, speed: 0.0007, y: 0.58, color: 'rgba(110,160,255,0.18)', width: 1.6 },
+    { amp: 42, freq: 0.0032, speed: 0.00022, y: 0.75, color: 'rgba(30,60,140,0.30)', width: 1 },
+  ];
+
+  function drawWaves(t){
+    ctx.clearRect(0, 0, w, h);
+
+    layers.forEach(layer => {
+      ctx.beginPath();
+      const baseY = h * layer.y;
+      for (let x = 0; x <= w; x += 6){
+        const y = baseY
+          + Math.sin(x * layer.freq + t * layer.speed) * layer.amp * dpr
+          + Math.sin(x * layer.freq * 2.3 + t * layer.speed * 1.7) * (layer.amp * 0.35) * dpr;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.fillStyle = layer.color;
+      ctx.fill();
+
+      // linha de brilho no topo da onda
+      ctx.beginPath();
+      for (let x = 0; x <= w; x += 6){
+        const y = baseY
+          + Math.sin(x * layer.freq + t * layer.speed) * layer.amp * dpr
+          + Math.sin(x * layer.freq * 2.3 + t * layer.speed * 1.7) * (layer.amp * 0.35) * dpr;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = layer.color.replace(/[\d.]+\)$/, '0.5)');
+      ctx.lineWidth = layer.width * dpr;
+      ctx.stroke();
+    });
+  }
+
+  function loop(t){
+    drawWaves(t);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  /* ---------------- Relógio ---------------- */
+  const clockTime = document.getElementById('clockTime');
+  const clockDate = document.getElementById('clockDate');
+  const diasSemana = ['dom','seg','ter','qua','qui','sex','sáb'];
+
+  function updateClock(){
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    clockTime.textContent = `${hh}:${mm}`;
+    const dia = diasSemana[now.getDay()];
+    const data = now.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' });
+    clockDate.textContent = `${dia} · ${data}`;
+  }
+  updateClock();
+  setInterval(updateClock, 1000 * 10);
+
+  /* ---------------- Sons de interface ---------------- */
+  const sfxMove = document.getElementById('sfx-move');
+  const sfxConfirm = document.getElementById('sfx-confirm');
+  const sfxBack = document.getElementById('sfx-back');
+  function playSfx(el){
+    if (!el) return;
+    el.currentTime = 0;
+    el.play().catch(() => {}); // navegador pode bloquear até 1º clique do usuário
+  }
+
+  /* ---------------- Carrossel ---------------- */
+  const items = Array.from(document.querySelectorAll('.icon-item'));
+  const labelText = document.getElementById('labelText');
+  const dotsWrap = document.getElementById('dots');
+  const scene = document.getElementById('scene');
+  let index = 2; // começa em "Sistema"
+  let mode = 'carousel'; // 'carousel' | 'games'
+
+  items.forEach((_, i) => {
+    const dot = document.createElement('span');
+    dotsWrap.appendChild(dot);
+  });
+  const dots = Array.from(dotsWrap.children);
+
+  function setActive(i, animateLabel = true){
+    const changed = ((i + items.length) % items.length) !== index;
+    index = (i + items.length) % items.length;
+    items.forEach((item, idx) => item.classList.toggle('active', idx === index));
+    dots.forEach((d, idx) => d.classList.toggle('active', idx === index));
+
+    if (animateLabel){
+      labelText.style.animation = 'none';
+      void labelText.offsetWidth;
+      labelText.style.animation = 'labelIn 0.4s ease forwards';
+    }
+    labelText.textContent = items[index].dataset.label;
+    if (changed && animateLabel) playSfx(sfxMove);
+
+    // centraliza o item ativo horizontalmente
+    const activeItem = items[index];
+    activeItem.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
+  }
+
+  function openIfGames(i){
+    if (index === i && items[i].dataset.label === 'Jogos') {
+      playSfx(sfxConfirm);
+      showGamesDashboard();
+    } else {
+      setActive(i);
+    }
+  }
+
+  items.forEach((item, i) => {
+    item.addEventListener('click', () => { if (mode === 'carousel') openIfGames(i); });
+    item.addEventListener('keydown', (e) => {
+      if (mode !== 'carousel') return;
+      if (e.key === 'Enter' || e.key === ' ') openIfGames(i);
+    });
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (mode === 'games'){
+      if (e.key === 'ArrowUp') { switchTab(tabIndex - 1); playSfx(sfxMove); }
+      if (e.key === 'ArrowDown') { switchTab(tabIndex + 1); playSfx(sfxMove); }
+      if (e.key === 'ArrowRight' && tabIndex === 1) { selectGameTile(gameIndex + 1); playSfx(sfxMove); }
+      if (e.key === 'ArrowLeft' && tabIndex === 1) { selectGameTile(gameIndex - 1); playSfx(sfxMove); }
+      if (e.key === 'Enter' && tabIndex === 1) { playSfx(sfxConfirm); launchGame(gameIndex); }
+      if (e.key === 'Backspace' || e.key === 'Escape') { playSfx(sfxBack); hideGamesDashboard(); }
+      return;
+    }
+    if (e.key === 'ArrowRight') setActive(index + 1);
+    if (e.key === 'ArrowLeft') setActive(index - 1);
+    if (e.key === 'Enter') openIfGames(index);
+  });
+
+  // suporte a swipe / arrastar
+  let startX = null;
+  window.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; });
+  window.addEventListener('touchend', (e) => {
+    if (startX === null) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) > 40){
+      if (mode === 'games'){
+        if (dx < 0) selectGameTile(gameIndex + 1);
+        else selectGameTile(gameIndex - 1);
+      } else {
+        if (dx < 0) setActive(index + 1);
+        else setActive(index - 1);
+      }
+    }
+    startX = null;
+  });
+
+  setActive(index, false);
+
+  /* =====================================================
+     Dashboard de Jogos — mecânica estilo Xbox 360 (NXE)
+     mantendo a paleta/estética padrão do menu
+     ===================================================== */
+
+  const GAMES = [
+    { name: 'NHG', icon: '💀', lastPlayed: 'nunca jogado', progress: 0, points: [0, 1000],
+      achv: [false, false, false, false, false], url: 'NHG/index.html' },
+    { name: 'Reino de Aço', icon: '🛡️', lastPlayed: 'há 5 dias', progress: 42, points: [860, 2000],
+      achv: [true, true, false, false, false] },
+    { name: 'Fúria Orbital', icon: '🚀', lastPlayed: 'ontem', progress: 91, points: [1820, 2000],
+      achv: [true, true, true, true, false] },
+    { name: 'Templo Perdido', icon: '🗿', lastPlayed: 'há 1 semana', progress: 15, points: [300, 2000],
+      achv: [true, false, false, false, false] },
+    { name: 'Liga Estelar', icon: '🏀', lastPlayed: 'há 3 dias', progress: 55, points: [1100, 2000],
+      achv: [true, true, false, false, false] },
+    { name: 'Sombra Quebrada', icon: '🗡️', lastPlayed: 'há 4 horas', progress: 77, points: [1540, 2000],
+      achv: [true, true, true, false, false] },
+    { name: 'Ilha Fantasma', icon: '🏝️', lastPlayed: 'há 2 semanas', progress: 30, points: [600, 2000],
+      achv: [true, false, false, false, false] },
+    { name: 'Guerra de Blocos', icon: '🧩', lastPlayed: 'há 6 dias', progress: 88, points: [1760, 2000],
+      achv: [true, true, true, true, false] },
+  ];
+
+  /* ---------- NHG: progresso real, lido do localStorage salvo pelo jogo ---------- */
+  const NHG_ACHV_THRESHOLDS = [100, 250, 500, 750, 1000]; // pts de score para cada conquista
+
+  function relativeTimePt(ts){
+    const diff = Date.now() - ts;
+    const sec = Math.floor(diff / 1000);
+    if (sec < 60) return 'agora';
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `há ${min} minuto${min > 1 ? 's' : ''}`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `há ${hr} hora${hr > 1 ? 's' : ''}`;
+    const day = Math.floor(hr / 24);
+    if (day < 7) return `há ${day} dia${day > 1 ? 's' : ''}`;
+    const week = Math.floor(day / 7);
+    if (week < 5) return `há ${week} semana${week > 1 ? 's' : ''}`;
+    const month = Math.floor(day / 30);
+    return `há ${month} mês${month > 1 ? 'es' : ''}`;
+  }
+
+  function refreshNHGStats(){
+    try {
+      const g = GAMES.find(x => x.name === 'NHG');
+      if (!g) return;
+      const menuPoints = parseInt(localStorage.getItem('nexus_points_total') || '0', 10);
+      const lastPlayedTs = parseInt(localStorage.getItem('nexus_lastplayed') || '0', 10);
+      g.points = [Math.min(menuPoints, 1000), 1000];
+      g.progress = Math.max(0, Math.min(100, Math.round((menuPoints / 1000) * 100)));
+      g.achv = NHG_ACHV_THRESHOLDS.map(t => menuPoints >= t);
+      g.lastPlayed = lastPlayedTs ? relativeTimePt(lastPlayedTs) : 'nunca jogado';
+    } catch (e) { /* localStorage indisponível — mantém placeholders */ }
+  }
+
+  const gamesDashboard = document.getElementById('gamesDashboard');
+  const gamesTiles = document.getElementById('gamesTiles');
+  const gamePanel = document.getElementById('gamePanel');
+  const gamesHint = document.getElementById('gamesHint');
+  const bootFlash = document.getElementById('bootFlash');
+  let gameIndex = 0;
+
+  const gamesTabs = Array.from(document.querySelectorAll('#gamesTabs span'));
+  const tabContents = gamesTabs.map((_, i) => document.getElementById('tabContent-' + i));
+  let tabIndex = 1; 
+
+  function switchTab(i){
+    const next = (i + gamesTabs.length) % gamesTabs.length;
+    if (next === tabIndex) return;
+    tabIndex = next;
+    gamesTabs.forEach((tab, idx) => tab.classList.toggle('active', idx === tabIndex));
+    tabContents.forEach((content, idx) => content.classList.toggle('show', idx === tabIndex));
+    if (tabIndex === 2) renderAchvGrid();
+  }
+
+  gamesTabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => switchTab(i));
+  });
+
+  GAMES.forEach((g, i) => {
+    const tile = document.createElement('div');
+    tile.className = 'game-tile';
+    tile.style.transitionDelay = (i * 0.035) + 's';
+    tile.innerHTML = `
+      <div class="tile-face">${g.icon}</div>
+      <div class="tile-reflection"></div>
+      <div class="tile-name">${g.name}</div>
+    `;
+    tile.addEventListener('click', () => {
+      if (gameIndex === i) { playSfx(sfxConfirm); launchGame(i); }
+      else { selectGameTile(i); playSfx(sfxMove); }
+    });
+    gamesTiles.appendChild(tile);
+  });
+  const gameTiles = Array.from(gamesTiles.children);
+
+  function renderPanel(i, { instant = false } = {}){
+    const g = GAMES[i];
+    gamePanel.innerHTML = `
+      <h2>${g.name}</h2>
+      <div class="meta">Última jogada ${g.lastPlayed}</div>
+      <div class="progress-row">
+        <div class="progress-track"><div class="progress-fill" id="pfill"></div></div>
+        <div class="progress-label">${g.points[0]} / ${g.points[1]} pts</div>
+      </div>
+      <div class="achv-row">
+        ${g.achv.map(u => `<div class="achv ${u ? 'unlocked' : ''}">${u ? '★' : '🔒'}</div>`).join('')}
+      </div>
+    `;
+    requestAnimationFrame(() => {
+      const fill = document.getElementById('pfill');
+      if (fill) fill.style.width = g.progress + '%';
+    });
+    if (!instant){
+      gamePanel.classList.remove('show');
+      void gamePanel.offsetWidth;
+    }
+    gamePanel.classList.add('show');
+  }
+
+  function selectGameTile(i){
+    if (mode !== 'games') return;
+    const next = (i + gameTiles.length) % gameTiles.length;
+    if (next === gameIndex){ return; }
+
+    gamePanel.classList.remove('show');
+
+    gameIndex = next;
+    gameTiles.forEach((t, idx) => t.classList.toggle('active', idx === gameIndex));
+    gameTiles[gameIndex].classList.add('flip');
+    setTimeout(() => gameTiles[gameIndex].classList.remove('flip'), 380);
+    gameTiles[gameIndex].scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
+
+    setTimeout(() => renderPanel(gameIndex), 160);
+  }
+
+  function launchGame(i){
+    if (mode !== 'games') return;
+    bootFlash.querySelector('span').textContent = 'Carregando ' + GAMES[i].name + '…';
+    bootFlash.classList.add('show');
+    
+    setTimeout(() => {
+      bootFlash.classList.remove('show');
+      if (GAMES[i].url) {
+        window.location.href = GAMES[i].url; 
+      }
+    }, 1100);
+  }
+
+  function showGamesDashboard(){
+    mode = 'games';
+    refreshNHGStats();
+    scene.classList.add('games-mode');
+    gamesDashboard.classList.add('open');
+    gamesHint.classList.add('show');
+    gameTiles.forEach((t, idx) => t.classList.toggle('active', idx === gameIndex));
+    renderPanel(gameIndex, { instant: true });
+    if (tabIndex === 2) renderAchvGrid();
+  }
+
+  // Ao voltar de NHG/index.html (botão voltar / bfcache) ou trocar de aba e retornar,
+  // reconsulta o localStorage para refletir a partida recém-jogada no card e nas conquistas.
+  window.addEventListener('pageshow', () => {
+    refreshNHGStats();
+    if (mode === 'games') {
+      renderPanel(gameIndex, { instant: true });
+      if (tabIndex === 2) renderAchvGrid();
+    }
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      refreshNHGStats();
+      if (mode === 'games') {
+        renderPanel(gameIndex, { instant: true });
+        if (tabIndex === 2) renderAchvGrid();
+      }
+    }
+  });
+
+  refreshNHGStats();
+
+  /* ---------- Aba "Conquistas": conquistas reais do NHG = classes finais (buildclass) ---------- */
+  // Espelha os mesmos nomes/pontos usados em NHG/index.html (CLASS_MENU_POINTS) e descreve
+  // a condição de cada classe, pra funcionar como uma lista de conquistas de verdade.
+  const GAME_ACHIEVEMENTS = {
+    NHG: [
+      { key: "Estrategista Versátil", pts: 15,  desc: "Termine uma partida sem se encaixar em nenhuma especialização específica." },
+      { key: "Capitalista Selvagem",   pts: 30,  desc: "Ganhe mais ouro do que 120x a onda alcançada." },
+      { key: "Piromaníaco do Caos",    pts: 30,  desc: "Termine com 3 ou mais torres de fogo/explosão/meteoro." },
+      { key: "Arquimago do Vazio",     pts: 30,  desc: "Termine com 3 ou mais torres arcanas/vazio/plasma." },
+      { key: "Senhor da Tempestade",   pts: 30,  desc: "Termine com 3 ou mais torres de raio/tempestade." },
+      { key: "Arauto da Peste",        pts: 30,  desc: "Termine com 3 ou mais torres de veneno/epidemia/corrosão." },
+      { key: "Engenheiro Industrial",  pts: 30,  desc: "Construa 10 ou mais torres na mesma partida." },
+      { key: "Atirador de Elite",      pts: 30,  desc: "Consiga mais críticos que 1.5x o número de inimigos derrotados." },
+      { key: "Arauto da Luz",          pts: 50,  desc: "Alinhamento majoritariamente de luz (60–70%), com cartas suficientes de alinhamento." },
+      { key: "Equilíbrio Cósmico",     pts: 55,  desc: "Mantenha o alinhamento luz/trevas praticamente equilibrado." },
+      { key: "Arauto do Apocalipse",   pts: 50,  desc: "Alinhamento majoritariamente sombrio (30–40% de luz)." },
+      { key: "Cultista do Abismo",     pts: 60,  desc: "Alinhamento fortemente sombrio (10–30% de luz)." },
+      { key: "Guardião Celestial",     pts: 65,  desc: "Alinhamento fortemente de luz (70–90%)." },
+      { key: "Lorde do Inferno",       pts: 70,  desc: "Alinhamento quase totalmente sombrio (10% ou menos de luz)." },
+      { key: "Arcanjo Supremo",        pts: 90,  desc: "Alinhamento quase totalmente de luz (90% ou mais)." },
+      { key: "Anjo Caído",             pts: 120, desc: "Alinhamento alto e equilibrado, combinando torres de fogo e magia." },
+      { key: "Juiz do Fim",            pts: 200, desc: "Alinhamento altíssimo de luz (80%+) com mais de 80 críticos." },
+      { key: "Entidade Primordial",    pts: 200, desc: "Alinhamento altíssimo sombrio (20% de luz ou menos) e mais de 10.000 de dano total." },
+    ],
+    // Demais jogos do dashboard ainda não têm sistema de conquistas próprio.
+    // Quando um novo jogo tiver, basta adicionar sua lista aqui com a mesma estrutura.
+  };
+
+  function getUnlockedClasses(){
+    try { return JSON.parse(localStorage.getItem('nexus_classes_unlocked') || '[]'); }
+    catch (e) { return []; }
+  }
+
+  let achvGameIndex = GAMES.findIndex(g => GAME_ACHIEVEMENTS[g.name]);
+  if (achvGameIndex < 0) achvGameIndex = 0;
+
+  function renderAchvGameTabs(){
+    const wrap = document.getElementById('achvGameTabs');
+    if (!wrap) return;
+    wrap.innerHTML = GAMES.map((g, i) =>
+      `<span class="achv-game-tab ${i === achvGameIndex ? 'active' : ''}" data-i="${i}">${g.icon} ${g.name}</span>`
+    ).join('');
+    Array.from(wrap.children).forEach((el, i) => {
+      el.addEventListener('click', () => {
+        achvGameIndex = i;
+        playSfx(sfxMove);
+        renderAchvGameTabs();
+        renderAchvGrid();
+      });
+    });
+  }
+
+  function renderAchvGrid(){
+    const grid = document.getElementById('achvGrid');
+    if (!grid) return;
+    const game = GAMES[achvGameIndex];
+    const list = game ? GAME_ACHIEVEMENTS[game.name] : null;
+    if (!list) {
+      grid.innerHTML = `<div class="tab-placeholder">Conquistas de "${game ? game.name : ''}" ainda não disponíveis — em breve</div>`;
+      return;
+    }
+    const unlocked = getUnlockedClasses();
+    grid.innerHTML = list.map(a => {
+      const isUnlocked = unlocked.includes(a.key);
+      return `
+        <div class="achv-card ${isUnlocked ? 'unlocked' : ''}">
+          <div class="achv-card-icon">${isUnlocked ? '★' : '🔒'}</div>
+          <div class="achv-card-body">
+            <div class="achv-card-name">${a.key}</div>
+            <div class="achv-card-desc">${a.desc}</div>
+          </div>
+          <div class="achv-card-pts">+${a.pts}</div>
+        </div>`;
+    }).join('');
+  }
+
+  renderAchvGameTabs();
+  renderAchvGrid();
+
+  function hideGamesDashboard(){
+    mode = 'carousel';
+    scene.classList.remove('games-mode');
+    gamesDashboard.classList.remove('open');
+    gamesHint.classList.remove('show');
+    gamePanel.classList.remove('show');
+  }
+</script>
+
+</body>
+</html>
